@@ -29,10 +29,12 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                // Make sure deploy.sh is executable
-                sh 'chmod +x deploy.sh'
-                // Run deploy.sh (script already knows about the key and EC2)
-                sh './deploy.sh'
+                sshagent (credentials: ['ec2-ssh-key']) {
+                    sh '''
+                        chmod +x deploy.sh
+                        ./deploy.sh
+                    '''
+                }
             }
         }
 
