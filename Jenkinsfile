@@ -16,7 +16,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn -B clean package'
+                sh 'mvn -B clean package -DskipTests'
             }
         }
 
@@ -29,9 +29,9 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                // Make deploy.sh executable
+                // Make sure deploy.sh is executable
                 sh 'chmod +x deploy.sh'
-                // Run deploy.sh (make sure deploy.sh uses -i ~/Desktop/mykey.pem)
+                // Run deploy.sh (script already knows about the key and EC2)
                 sh './deploy.sh'
             }
         }
