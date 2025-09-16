@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    tools {
+        maven "Maven3"    // match your configured Maven installation name
+        jdk "jdk17"       // match your configured JDK installation name
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -26,18 +31,11 @@ pipeline {
                                                   keyFileVariable: 'SSH_KEY')]) {
                     sh '''
                         echo ">>> Deploying JAR to EC2..."
-                        # Copy JAR to EC2
                         scp -i $SSH_KEY -o StrictHostKeyChecking=no target/*.jar ec2-user@54.174.128.187:/home/ec2-user/app/hello.jar
 
-                        # Restart the application on EC2
                         ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@54.174.128.187 << 'EOF'
-                            echo ">>> Stopping old app (if running)..."
                             pkill -f 'java -jar' || true
-
-                            echo ">>> Starting new app..."
                             nohup java -jar /home/ec2-user/app/hello.jar > /home/ec2-user/app/app.log 2>&1 &
-
-                            echo ">>> Deployment complete. App is running."
                         EOF
                     '''
                 }
