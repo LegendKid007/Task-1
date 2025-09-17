@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         EC2_USER = "ec2-user"
+        PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
     }
 
     stages {
@@ -35,7 +36,6 @@ pipeline {
 
                     // Create key pair in AWS and save PEM locally
                     sh """
-                      export PATH=/opt/homebrew/bin:$PATH
                       aws ec2 create-key-pair --key-name ${keyName} \
                         --query 'KeyMaterial' --output text \
                         --region us-east-1 > ${keyPath}
@@ -50,7 +50,6 @@ pipeline {
 
                     // Run terraform with dynamic key_name
                     sh """
-                      export PATH=/opt/homebrew/bin:$PATH
                       terraform init -input=false
                       terraform apply -auto-approve -input=false -var="key_name=${env.KEY_NAME}"
                       terraform output -raw ec2_public_ip > ec2_ip.txt

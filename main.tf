@@ -67,7 +67,7 @@ resource "aws_instance" "app" {
               EOF
 
   tags = {
-    Name = var.key_name   # 👈 EC2 name will match the key name
+    Name = var.key_name   # 👈 EC2 name matches the key pair
   }
 }
 
