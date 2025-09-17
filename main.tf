@@ -1,23 +1,10 @@
 provider "aws" {
-  region  = "us-east-1"
-  profile = "default"
+  region = "us-east-1"
 }
 
-# Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux_2" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-}
-
-# Security group
 resource "aws_security_group" "app_sg" {
-  name        = "app-sg"
-  description = "Allow SSH and app traffic"
+  name        = "app_sg"
+  description = "Allow SSH and app port"
 
   ingress {
     from_port   = 22
@@ -41,7 +28,19 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# EC2 Instance
+data "aws_ami" "amazon_linux_2" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
+
+variable "key_name" {}
+variable "instance_type" {}
+
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.amazon_linux_2.id
   instance_type               = var.instance_type
@@ -49,21 +48,19 @@ resource "aws_instance" "app" {
   vpc_security_group_ids      = [aws_security_group.app_sg.id]
   associate_public_ip_address = true
 
-  # Install Java 17
-  user_data = <<-EOF
+  tags = {
+    Name = var.key_name
+  }
+
+  user_data = <<-EOT
               #!/bin/bash
               sudo yum update -y
               sudo amazon-linux-extras enable corretto17
-              sudo yum install -y java-17-amazon-corretto
+              sudo yum install -y java-17-amazon-corretto -y
               java -version
-              EOF
-
-  tags = {
-    Name = var.key_name   # 👈 EC2 name = key pair name
-  }
+              EOT
 }
 
-# Output public IP
 output "ec2_public_ip" {
   value = aws_instance.app.public_ip
 }
