@@ -8,7 +8,7 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  default = "jenkins"   # must match your AWS key pair name
+  default = "jenkins"   # must match your AWS key pair name in AWS
 }
 
 # Amazon Linux 2 AMI
@@ -57,12 +57,12 @@ resource "aws_instance" "app" {
   vpc_security_group_ids      = [aws_security_group.app_sg.id]
   associate_public_ip_address = true
 
-  # Install Java 17 at boot
+  # Install Java 17
   user_data = <<-EOF
               #!/bin/bash
               sudo yum update -y
               sudo amazon-linux-extras enable corretto17
-              sudo yum install -y java-17-amazon-corretto -y
+              sudo yum install -y java-17-amazon-corretto
               java -version
               EOF
 

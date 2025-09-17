@@ -7,23 +7,19 @@ pipeline {
     }
 
     stages {
-        stage('Provision EC2 (if not exists)') {
+        stage('Provision New EC2') {
             steps {
                 script {
-                    if (fileExists('ec2_ip.txt')) {
-                        echo "✅ EC2 already provisioned, reusing existing instance..."
-                        env.EC2_HOST = readFile('ec2_ip.txt').trim()
-                    } else {
-                        echo "🚀 Creating a new EC2 instance with Terraform..."
-                        sh '''
-                          terraform init
-                          terraform apply -auto-approve
-                          terraform output -raw ec2_public_ip > ec2_ip.txt
-                        '''
-                        env.EC2_HOST = readFile('ec2_ip.txt').trim()
-                    }
+                    echo "🚀 Creating a fresh EC2 instance with Terraform..."
+                    sh '''
+                      rm -f ec2_ip.txt
+                      terraform init -input=false
+                      terraform apply -auto-approve -input=false
+                      terraform output -raw ec2_public_ip > ec2_ip.txt
+                    '''
+                    env.EC2_HOST = readFile('ec2_ip.txt').trim()
+                    echo "✅ New EC2 created: ${env.EC2_HOST}"
                 }
-                echo "Using EC2 host: ${env.EC2_HOST}"
             }
         }
 
@@ -39,11 +35,17 @@ pipeline {
                 sh "bash deploy.sh ${env.EC2_HOST}"
             }
         }
+
+        stage('Verify App') {
+            steps {
+                sh "sleep 20 && curl -f http://${env.EC2_HOST}:9091/hello"
+            }
+        }
     }
 
     post {
         success {
-            echo "✅ Build + Provision + Deploy successful!"
+            echo "✅ Pipeline complete!"
             echo "🌍 App is available at: http://${env.EC2_HOST}:9091/hello"
         }
         failure {
