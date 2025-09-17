@@ -1,51 +1,53 @@
 pipeline {
     agent any
 
-    tools {
-        maven "Maven3"    // match your configured Maven installation name
-        jdk "jdk17"       // match your configured JDK installation name
+    environment {
+        EC2_USER = "ec2-user"
+        EC2_KEY  = "/Users/komalsaiballa/Desktop/jenkins.pem"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Provision EC2 (if not exists)') {
             steps {
-                git branch: 'main', url: 'https://github.com/LegendKid007/Task-1.git'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh 'mvn -B clean package -DskipTests'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh 'mvn test'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', 
-                                                  keyFileVariable: 'SSH_KEY')]) {
-                    sh '''
-                        echo ">>> Deploying JAR to EC2..."
-                        scp -i $SSH_KEY -o StrictHostKeyChecking=no target/*.jar ec2-user@54.174.128.187:/home/ec2-user/app/hello.jar
-
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@54.174.128.187 << 'EOF'
-                            pkill -f 'java -jar' || true
-                            nohup java -jar /home/ec2-user/app/hello.jar > /home/ec2-user/app/app.log 2>&1 &
-                        EOF
-                    '''
+                script {
+                    if (fileExists('ec2_ip.txt')) {
+                        echo "✅ EC2 already provisioned, reusing existing instance..."
+                        env.EC2_HOST = readFile('ec2_ip.txt').trim()
+                    } else {
+                        echo "🚀 Creating a new EC2 instance with Terraform..."
+                        sh '''
+                          terraform init
+                          terraform apply -auto-approve
+                          terraform output -raw ec2_public_ip > ec2_ip.txt
+                        '''
+                        env.EC2_HOST = readFile('ec2_ip.txt').trim()
+                    }
                 }
+                echo "Using EC2 host: ${env.EC2_HOST}"
             }
         }
 
-        stage('Archive') {
+        stage('Build Spring Boot App') {
             steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                sh './mvnw clean package -DskipTests'
             }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                sh "chmod 400 ${EC2_KEY}"
+                sh "bash deploy.sh ${env.EC2_HOST}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Build + Provision + Deploy successful!"
+            echo "🌍 App is available at: http://${env.EC2_HOST}:9091/hello"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs."
         }
     }
 }
