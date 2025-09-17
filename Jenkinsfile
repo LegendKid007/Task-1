@@ -12,14 +12,14 @@ pipeline {
                 script {
                     echo "🔑 Generating new key pair for this build..."
 
-                    // Unique key based on Jenkins build number
+                    // Unique key name per build
                     def keyName = "jenkins-${env.BUILD_NUMBER}"
                     def keyPath = "/Users/komalsaiballa/Desktop/${keyName}.pem"
 
-                    // Remove if file exists locally
+                    // Cleanup old PEM if exists
                     sh "rm -f ${keyPath}"
 
-                    // Create key pair in AWS and save PEM locally
+                    // Create AWS key pair and save locally
                     sh """
                       aws ec2 create-key-pair --key-name ${keyName} \
                         --query 'KeyMaterial' --output text \
@@ -27,23 +27,24 @@ pipeline {
                       chmod 400 ${keyPath}
                     """
 
-                    // Save env vars for later stages
                     env.KEY_NAME = keyName
                     env.EC2_KEY  = keyPath
 
                     echo "✅ Created new key pair: ${env.KEY_NAME}, saved at ${env.EC2_KEY}"
 
-                    // Run terraform with dynamic key_name
+                    // Run Terraform with dynamic key
                     sh """
                       terraform init -input=false
-                      terraform apply -auto-approve -input=false -var="key_name=${env.KEY_NAME}"
+                      terraform apply -auto-approve -input=false \
+                        -var="key_name=${env.KEY_NAME}" \
+                        -var="instance_type=t3.micro"
                       terraform output -raw ec2_public_ip > ec2_ip.txt
                     """
 
                     env.EC2_HOST = readFile('ec2_ip.txt').trim()
                     echo "🌍 New EC2 created: ${env.KEY_NAME} (${env.EC2_HOST})"
 
-                    // Save EC2 info to Desktop log
+                    // Save info locally
                     sh """
                       echo '${env.KEY_NAME} ${env.EC2_HOST} ${env.EC2_KEY}' >> /Users/komalsaiballa/Desktop/ec2_list.txt
                     """

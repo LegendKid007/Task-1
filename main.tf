@@ -3,14 +3,6 @@ provider "aws" {
   profile = "default"
 }
 
-variable "instance_type" {
-  default = "t2.micro"
-}
-
-variable "key_name" {
-  description = "EC2 key pair name"
-}
-
 # Amazon Linux 2 AMI
 data "aws_ami" "amazon_linux_2" {
   most_recent = true
@@ -67,7 +59,7 @@ resource "aws_instance" "app" {
               EOF
 
   tags = {
-    Name = var.key_name   # 👈 EC2 name matches the key pair
+    Name = var.key_name   # 👈 EC2 name = key pair name
   }
 }
 

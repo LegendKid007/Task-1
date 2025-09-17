@@ -4,7 +4,7 @@
 EC2_USER="ec2-user"
 EC2_HOST=$1
 APP_DIR="/home/ec2-user/app"
-KEY_PATH=$EC2_KEY   # Jenkins passes this
+KEY_PATH=$EC2_KEY   # Jenkins sets this
 LOCAL_JAR_PATH="target/app.jar"
 REMOTE_JAR_NAME="app.jar"
 PORT=9091
@@ -19,9 +19,7 @@ if [ ! -f "$LOCAL_JAR_PATH" ]; then
   exit 1
 fi
 
-echo ">>> Starting deployment to $EC2_HOST ..."
-echo ">>> Local JAR: $LOCAL_JAR_PATH"
-
+echo ">>> Deploying to $EC2_HOST ..."
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 ssh -o StrictHostKeyChecking=no -i $KEY_PATH $EC2_USER@$EC2_HOST "
@@ -39,4 +37,4 @@ ssh -i $KEY_PATH $EC2_USER@$EC2_HOST "
   nohup java -jar $REMOTE_JAR_NAME --server.port=$PORT > app.log 2>&1 &
 "
 
-echo ">>> Deployment complete. Access the app at: http://$EC2_HOST:$PORT/hello"
+echo ">>> Done! App running at: http://$EC2_HOST:$PORT/hello"
