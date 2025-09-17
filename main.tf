@@ -8,7 +8,7 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  default = "jenkins"   # must match your AWS key pair name in AWS
+  description = "EC2 key pair name"
 }
 
 # Amazon Linux 2 AMI
@@ -67,7 +67,7 @@ resource "aws_instance" "app" {
               EOF
 
   tags = {
-    Name = "jenkins-ec2-app"
+    Name = var.key_name   # 👈 EC2 name will match the key name
   }
 }
 

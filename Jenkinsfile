@@ -3,23 +3,61 @@ pipeline {
 
     environment {
         EC2_USER = "ec2-user"
-        EC2_KEY  = "/Users/komalsaiballa/Desktop/jenkins.pem"
     }
 
     stages {
         stage('Provision New EC2') {
             steps {
                 script {
-                    echo "🚀 Creating a fresh EC2 instance with Terraform..."
-                    sh '''
-                      export PATH=/opt/homebrew/bin:$PATH   # Ensure Jenkins sees terraform
-                      rm -f ec2_ip.txt
+                    echo "🔑 Generating new key pair for this build..."
+
+                    // Find next available key name: jenkins, jenkins1, jenkins2...
+                    def baseName = "jenkins"
+                    def keyName = baseName
+                    def counter = 1
+                    while (true) {
+                        def exists = sh(
+                            script: "aws ec2 describe-key-pairs --key-names ${keyName} --region us-east-1 || true",
+                            returnStdout: true
+                        ).trim()
+                        if (exists.contains("InvalidKeyPair.NotFound")) {
+                            break
+                        } else {
+                            keyName = baseName + counter
+                            counter++
+                        }
+                    }
+
+                    def keyPath = "/Users/komalsaiballa/Desktop/${keyName}.pem"
+
+                    // Delete local file if somehow left over
+                    sh "rm -f ${keyPath}"
+
+                    // Create key pair in AWS and save PEM locally
+                    sh """
+                      export PATH=/opt/homebrew/bin:$PATH
+                      aws ec2 create-key-pair --key-name ${keyName} \
+                        --query 'KeyMaterial' --output text \
+                        --region us-east-1 > ${keyPath}
+                      chmod 400 ${keyPath}
+                    """
+
+                    // Save env vars for later stages
+                    env.KEY_NAME = keyName
+                    env.EC2_KEY  = keyPath
+
+                    echo "✅ Created new key pair: ${env.KEY_NAME}, saved at ${env.EC2_KEY}"
+
+                    // Run terraform with dynamic key_name
+                    sh """
+                      export PATH=/opt/homebrew/bin:$PATH
                       terraform init -input=false
-                      terraform apply -auto-approve -input=false
+                      terraform apply -auto-approve -input=false -var="key_name=${env.KEY_NAME}"
                       terraform output -raw ec2_public_ip > ec2_ip.txt
-                    '''
+                    """
+
                     env.EC2_HOST = readFile('ec2_ip.txt').trim()
-                    echo "✅ New EC2 created: ${env.EC2_HOST}"
+                    echo "🌍 New EC2 created: ${env.KEY_NAME} (${env.EC2_HOST})"
                 }
             }
         }
@@ -32,7 +70,7 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sh "chmod 400 ${EC2_KEY}"
+                sh "chmod 400 ${env.EC2_KEY}"
                 sh "bash deploy.sh ${env.EC2_HOST}"
             }
         }
@@ -47,7 +85,7 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline complete!"
-            echo "🌍 App is available at: http://${env.EC2_HOST}:9091/hello"
+            echo "🌍 App is running on EC2: ${env.KEY_NAME} (${env.EC2_HOST})"
         }
         failure {
             echo "❌ Pipeline failed. Check logs."

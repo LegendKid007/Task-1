@@ -4,8 +4,7 @@
 EC2_USER="ec2-user"
 EC2_HOST=$1
 APP_DIR="/home/ec2-user/app"
-KEY_PATH="/Users/komalsaiballa/Desktop/jenkins.pem"
-
+KEY_PATH=$EC2_KEY   # Jenkins passes this
 LOCAL_JAR_PATH="target/app.jar"
 REMOTE_JAR_NAME="app.jar"
 PORT=9091
