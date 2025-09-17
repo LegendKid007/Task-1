@@ -71,7 +71,12 @@ pipeline {
 
         stage('Verify App') {
             steps {
-                sh "sleep 20 && curl -f http://${env.EC2_HOST}:9091/hello"
+                script {
+                    // Retry 6 times, sleeping 20s each → max wait ~2 minutes
+                    retry(6) {
+                        sh "sleep 20 && curl -f http://${env.EC2_HOST}:9091/hello"
+                    }
+                }
             }
         }
     }
