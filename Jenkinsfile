@@ -64,17 +64,16 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sh "chmod 400 ${env.EC2_KEY}"
-                sh "bash deploy.sh ${env.EC2_HOST}"
+                sh "chmod +x deploy.sh"
+                sh "bash deploy.sh ${env.EC2_HOST} ${env.KEY_NAME}.pem"
             }
         }
 
         stage('Verify App') {
             steps {
                 script {
-                    // Retry 6 times, sleeping 20s each → max wait ~2 minutes
-                    retry(6) {
-                        sh "sleep 20 && curl -f http://${env.EC2_HOST}:9091/hello"
+                    retry(3) {
+                        sh "sleep 10 && curl -f http://${env.EC2_HOST}:9091/hello"
                     }
                 }
             }

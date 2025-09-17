@@ -1,40 +1,40 @@
 #!/bin/bash
-# Deployment script for Spring Boot app
+set -e
 
-EC2_USER="ec2-user"
-EC2_HOST=$1
-APP_DIR="/home/ec2-user/app"
-KEY_PATH=$EC2_KEY   # Jenkins sets this
-LOCAL_JAR_PATH="target/app.jar"
-REMOTE_JAR_NAME="app.jar"
-PORT=9091
+EC2_IP=$1
+PEM_FILE="$HOME/Desktop/$2"   # Jenkins passes .pem file path
+APP_PORT=9091
+APP_NAME="app.jar"
+APP_DIR="/home/ec2-user"
+REMOTE_JAR="$APP_DIR/$APP_NAME"
 
-if [ -z "$EC2_HOST" ]; then
-  echo "Usage: $0 <EC2_HOST>"
+echo ">>> Deploying to $EC2_IP ..."
+
+# 1. Copy JAR to EC2
+scp -o StrictHostKeyChecking=no -i "$PEM_FILE" target/$APP_NAME ec2-user@$EC2_IP:$APP_DIR/
+
+# 2. SSH into EC2 and deploy
+ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
+  set -e
+  echo ">>> Stopping any running app..."
+  pkill -f "$APP_NAME" || true
+
+  echo ">>> Starting new app on port $APP_PORT..."
+  nohup java -jar $REMOTE_JAR --server.port=$APP_PORT --server.address=0.0.0.0 > app.log 2>&1 &
+
+  # Wait for startup
+  echo ">>> Waiting for app to start..."
+  for i in {1..10}; do
+    sleep 5
+    if curl -s http://localhost:$APP_PORT/hello >/dev/null; then
+      echo ">>> App is UP ✅"
+      exit 0
+    fi
+  done
+
+  echo ">>> App failed to start ❌"
+  tail -n 50 app.log
   exit 1
-fi
+EOF
 
-if [ ! -f "$LOCAL_JAR_PATH" ]; then
-  echo "Error: $LOCAL_JAR_PATH not found. Run 'mvn clean package' first."
-  exit 1
-fi
-
-echo ">>> Deploying to $EC2_HOST ..."
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
-
-ssh -o StrictHostKeyChecking=no -i $KEY_PATH $EC2_USER@$EC2_HOST "
-  mkdir -p $APP_DIR
-  if [ -f $APP_DIR/$REMOTE_JAR_NAME ]; then
-      mv $APP_DIR/$REMOTE_JAR_NAME $APP_DIR/${REMOTE_JAR_NAME%.jar}_backup_$TIMESTAMP.jar
-  fi
-"
-
-scp -i $KEY_PATH $LOCAL_JAR_PATH $EC2_USER@$EC2_HOST:$APP_DIR/$REMOTE_JAR_NAME
-
-ssh -i $KEY_PATH $EC2_USER@$EC2_HOST "
-  pkill -f 'java -jar $APP_DIR/$REMOTE_JAR_NAME' || echo 'No previous process found'
-  cd $APP_DIR
-  nohup java -jar $REMOTE_JAR_NAME --server.port=$PORT > app.log 2>&1 &
-"
-
-echo ">>> Done! App running at: http://$EC2_HOST:$PORT/hello"
+echo ">>> Done! App running at: http://$EC2_IP:$APP_PORT/hello"
