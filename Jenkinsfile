@@ -12,6 +12,7 @@ pipeline {
                 script {
                     echo "🚀 Creating a fresh EC2 instance with Terraform..."
                     sh '''
+                      export PATH=/opt/homebrew/bin:$PATH   # Ensure Jenkins sees terraform
                       rm -f ec2_ip.txt
                       terraform init -input=false
                       terraform apply -auto-approve -input=false
