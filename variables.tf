@@ -1,8 +1,10 @@
-variable "instance_type" {
-  description = "EC2 instance type (default is free-tier eligible)"
-  default     = "t3.micro"
+variable "key_name" {
+  description = "AWS EC2 key pair name"
+  type        = string
 }
 
-variable "key_name" {
-  description = "EC2 key pair name"
+variable "instance_type" {
+  description = "AWS EC2 instance type"
+  type        = string
+  default     = "t3.micro"
 }
