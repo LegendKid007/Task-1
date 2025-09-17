@@ -12,26 +12,11 @@ pipeline {
                 script {
                     echo "🔑 Generating new key pair for this build..."
 
-                    // Find next available key name: jenkins, jenkins1, jenkins2...
-                    def baseName = "jenkins"
-                    def keyName = baseName
-                    def counter = 1
-                    while (true) {
-                        def exists = sh(
-                            script: "aws ec2 describe-key-pairs --key-names ${keyName} --region us-east-1 || true",
-                            returnStdout: true
-                        ).trim()
-                        if (exists.contains("InvalidKeyPair.NotFound")) {
-                            break
-                        } else {
-                            keyName = baseName + counter
-                            counter++
-                        }
-                    }
-
+                    // Unique key based on Jenkins build number
+                    def keyName = "jenkins-${env.BUILD_NUMBER}"
                     def keyPath = "/Users/komalsaiballa/Desktop/${keyName}.pem"
 
-                    // Delete local file if somehow left over
+                    // Remove if file exists locally
                     sh "rm -f ${keyPath}"
 
                     // Create key pair in AWS and save PEM locally
@@ -57,6 +42,11 @@ pipeline {
 
                     env.EC2_HOST = readFile('ec2_ip.txt').trim()
                     echo "🌍 New EC2 created: ${env.KEY_NAME} (${env.EC2_HOST})"
+
+                    // Save EC2 info to Desktop log
+                    sh """
+                      echo '${env.KEY_NAME} ${env.EC2_HOST} ${env.EC2_KEY}' >> /Users/komalsaiballa/Desktop/ec2_list.txt
+                    """
                 }
             }
         }
