@@ -12,14 +12,11 @@ pipeline {
                 script {
                     echo "🔑 Generating new key pair for this build..."
 
-                    // Unique key name per build
                     def keyName = "jenkins-${env.BUILD_NUMBER}"
                     def keyPath = "/Users/komalsaiballa/Desktop/${keyName}.pem"
 
-                    // Cleanup old PEM if exists
                     sh "rm -f ${keyPath}"
 
-                    // Create AWS key pair and save locally
                     sh """
                       aws ec2 create-key-pair --key-name ${keyName} \
                         --query 'KeyMaterial' --output text \
@@ -32,7 +29,6 @@ pipeline {
 
                     echo "✅ Created new key pair: ${env.KEY_NAME}, saved at ${env.EC2_KEY}"
 
-                    // Run Terraform with dynamic key
                     sh """
                       terraform init -input=false
                       terraform apply -auto-approve -input=false \
@@ -44,7 +40,6 @@ pipeline {
                     env.EC2_HOST = readFile('ec2_ip.txt').trim()
                     echo "🌍 New EC2 created: ${env.KEY_NAME} (${env.EC2_HOST})"
 
-                    // Save info locally
                     sh """
                       echo '${env.KEY_NAME} ${env.EC2_HOST} ${env.EC2_KEY}' >> /Users/komalsaiballa/Desktop/ec2_list.txt
                     """
@@ -54,8 +49,16 @@ pipeline {
 
         stage('Build Spring Boot App') {
             steps {
-                sh 'chmod +x mvnw'  // ✅ Fix permission issue
-                sh './mvnw clean package -DskipTests'
+                script {
+                    if (fileExists('mvnw')) {
+                        echo "📦 Using Maven Wrapper"
+                        sh 'chmod +x mvnw'
+                        sh './mvnw clean package -DskipTests'
+                    } else {
+                        echo "📦 Maven wrapper not found, using system Maven"
+                        sh 'mvn clean package -DskipTests'
+                    }
+                }
             }
         }
 
