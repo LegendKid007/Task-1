@@ -46,11 +46,29 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
+# Key Pair (public key will be created from local PEM)
+resource "tls_private_key" "ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "generated" {
+  key_name   = var.key_name
+  public_key = tls_private_key.ssh_key.public_key_openssh
+}
+
+# Save PEM locally
+resource "local_file" "pem_file" {
+  filename = "${path.module}/${var.key_name}.pem"
+  content  = tls_private_key.ssh_key.private_key_pem
+  file_permission = "0400"
+}
+
 # EC2 Instance
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.amazon_linux_2.id
   instance_type               = var.instance_type
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.generated.key_name
   vpc_security_group_ids      = [aws_security_group.app_sg.id]
   associate_public_ip_address = true
 
@@ -59,8 +77,6 @@ resource "aws_instance" "app" {
               yum update -y
               amazon-linux-extras enable corretto17
               yum install -y java-17-amazon-corretto
-              echo "✅ Java installed" >> /home/ec2-user/setup.log
-              java -version >> /home/ec2-user/setup.log 2>&1
               EOT
 
   tags = {

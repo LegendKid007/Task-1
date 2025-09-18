@@ -24,14 +24,6 @@ scp -o StrictHostKeyChecking=no -i "$PEM_FILE" target/app.jar ec2-user@$EC2_IP:$
 ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
   set -e
 
-  # Ensure Java is installed
-  if ! command -v java &> /dev/null; then
-    echo ">>> Installing Java..."
-    sudo yum update -y
-    sudo amazon-linux-extras enable corretto17
-    sudo yum install -y java-17-amazon-corretto
-  fi
-
   echo ">>> Stopping any running app..."
   pkill -f "$APP_NAME" || true
 
