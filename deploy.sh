@@ -18,6 +18,7 @@ for i in {1..12}; do
 done
 
 # Copy JAR
+echo "📦 Copying JAR to EC2..."
 scp -o StrictHostKeyChecking=no -i "$PEM_FILE" target/app.jar ec2-user@$EC2_IP:$REMOTE_JAR
 
 # Deploy app
@@ -39,7 +40,7 @@ ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
     fi
   done
 
-  echo "❌ App failed to start"
+  echo "❌ App failed to start, showing last 50 log lines:"
   tail -n 50 app.log
   exit 1
 EOF

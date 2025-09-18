@@ -4,6 +4,8 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_VAR_instance_type = "t3.micro"
+        # Ensure Jenkins can see Terraform
+        PATH = "/opt/homebrew/bin:${env.PATH}"
     }
 
     stages {
@@ -19,6 +21,7 @@ pipeline {
                     def keyName = "jenkins-${env.BUILD_NUMBER}"
                     echo "🔑 Using Terraform to create key + EC2"
                     sh """
+                        terraform -version
                         terraform init -input=false
                         terraform apply -auto-approve -input=false -var=key_name=${keyName} -var=instance_type=${TF_VAR_instance_type}
                     """
