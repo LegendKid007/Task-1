@@ -64,7 +64,7 @@ resource "local_file" "pem_file" {
   file_permission = "0400"
 }
 
-# EC2 Instance
+# EC2 Instance with Java preinstalled
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.amazon_linux_2.id
   instance_type               = var.instance_type
@@ -74,9 +74,30 @@ resource "aws_instance" "app" {
 
   user_data = <<-EOT
               #!/bin/bash
+              exec > /home/ec2-user/setup.log 2>&1
+              set -xe
+
+              echo ">>> Updating packages..."
               yum update -y
+
+              echo ">>> Enabling Amazon Corretto 17..."
               amazon-linux-extras enable corretto17
+
+              echo ">>> Installing Java 17..."
               yum install -y java-17-amazon-corretto
+
+              echo ">>> Waiting for Java to be available..."
+              for i in {1..30}; do
+                if command -v java >/dev/null 2>&1; then
+                  echo "✅ Java installed"
+                  java -version
+                  break
+                fi
+                echo "⏳ Java not ready yet, retrying..."
+                sleep 10
+              done
+
+              echo ">>> Setup complete."
               EOT
 
   tags = {

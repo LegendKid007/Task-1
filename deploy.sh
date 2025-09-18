@@ -8,14 +8,30 @@ REMOTE_JAR="/home/ec2-user/$APP_NAME"
 echo ">>> Deploying to $EC2_IP ..."
 
 # Wait for SSH
-for i in {1..12}; do
+for i in {1..30}; do
   if ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP "echo 'SSH ready'" 2>/dev/null; then
     echo "✅ SSH is ready"
     break
   fi
   echo "⏳ Still waiting for SSH..."
-  sleep 5
+  sleep 10
 done
+
+# Ensure Java is installed
+echo ">>> Checking Java on EC2..."
+ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<'EOF'
+for i in {1..30}; do
+  if command -v java >/dev/null 2>&1; then
+    echo "✅ Java found on EC2"
+    java -version
+    exit 0
+  fi
+  echo "⏳ Java not ready, retrying..."
+  sleep 10
+done
+echo "❌ Java not found, setup may have failed"
+exit 1
+EOF
 
 # Copy JAR
 echo "📦 Copying JAR to EC2..."
@@ -32,8 +48,8 @@ ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
   nohup java -jar $REMOTE_JAR --server.port=$APP_PORT --server.address=0.0.0.0 > app.log 2>&1 &
 
   echo ">>> Waiting for app to start..."
-  for i in {1..12}; do
-    sleep 5
+  for i in {1..30}; do
+    sleep 10
     if curl -s http://localhost:$APP_PORT/hello >/dev/null; then
       echo "✅ App is UP"
       exit 0
