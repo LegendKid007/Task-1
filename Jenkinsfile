@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_VAR_instance_type = "t3.micro"
-        # Ensure Jenkins can see Terraform
+        // Fix PATH so Jenkins can find Terraform
         PATH = "/opt/homebrew/bin:${env.PATH}"
     }
 

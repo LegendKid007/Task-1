@@ -46,7 +46,7 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
-# Key Pair (public key will be created from local PEM)
+# Generate Key Pair
 resource "tls_private_key" "ssh_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -59,8 +59,8 @@ resource "aws_key_pair" "generated" {
 
 # Save PEM locally
 resource "local_file" "pem_file" {
-  filename = "${path.module}/${var.key_name}.pem"
-  content  = tls_private_key.ssh_key.private_key_pem
+  filename        = "${path.module}/${var.key_name}.pem"
+  content         = tls_private_key.ssh_key.private_key_pem
   file_permission = "0400"
 }
 
