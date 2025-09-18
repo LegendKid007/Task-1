@@ -2,12 +2,12 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Get default VPC
+# Default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Security Group for EC2
+# Security Group
 resource "aws_security_group" "app_sg" {
   name        = "app_sg"
   description = "Allow SSH and app port"
@@ -35,7 +35,7 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# Latest Amazon Linux 2 AMI
+# Latest Amazon Linux 2
 data "aws_ami" "amazon_linux_2" {
   most_recent = true
   owners      = ["amazon"]

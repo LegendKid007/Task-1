@@ -1,32 +1,37 @@
 #!/bin/bash
-set -e
-
 EC2_IP=$1
-PEM_FILE="$HOME/Desktop/$2"
-APP_PORT=9091
+PEM_FILE=$2
 APP_NAME="app.jar"
-APP_DIR="/home/ec2-user"
-REMOTE_JAR="$APP_DIR/$APP_NAME"
+APP_PORT=9091
+REMOTE_JAR="/home/ec2-user/$APP_NAME"
 
 echo ">>> Deploying to $EC2_IP ..."
 
-# Wait for SSH to be ready
-echo ">>> Waiting for SSH to be ready..."
-for i in {1..15}; do
-  if ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" -q ec2-user@$EC2_IP exit; then
+# Wait for SSH
+for i in {1..12}; do
+  if ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP "echo 'SSH ready'" 2>/dev/null; then
     echo "✅ SSH is ready"
     break
   fi
   echo "⏳ Still waiting for SSH..."
-  sleep 10
+  sleep 5
 done
 
-# Copy JAR to EC2
-scp -o StrictHostKeyChecking=no -i "$PEM_FILE" target/$APP_NAME ec2-user@$EC2_IP:$APP_DIR/
+# Copy JAR
+scp -o StrictHostKeyChecking=no -i "$PEM_FILE" target/app.jar ec2-user@$EC2_IP:$REMOTE_JAR
 
-# Deploy app on EC2
+# Deploy app
 ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
   set -e
+
+  # Ensure Java is installed
+  if ! command -v java &> /dev/null; then
+    echo ">>> Installing Java..."
+    sudo yum update -y
+    sudo amazon-linux-extras enable corretto17
+    sudo yum install -y java-17-amazon-corretto
+  fi
+
   echo ">>> Stopping any running app..."
   pkill -f "$APP_NAME" || true
 
@@ -46,5 +51,3 @@ ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@$EC2_IP <<EOF
   tail -n 50 app.log
   exit 1
 EOF
-
-echo ">>> Done! App running at: http://$EC2_IP:$APP_PORT/hello"

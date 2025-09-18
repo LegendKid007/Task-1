@@ -2,47 +2,38 @@ pipeline {
     agent any
 
     environment {
-        EC2_USER = "ec2-user"
-        PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+        AWS_REGION = "us-east-1"
+        TF_VAR_instance_type = "t3.micro"
+        KEY_DIR = "/Users/komalsaiballa/Desktop"
     }
 
     stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Provision New EC2') {
             steps {
                 script {
-                    echo "🔑 Generating new key pair for this build..."
-
                     def keyName = "jenkins-${env.BUILD_NUMBER}"
-                    def keyPath = "/Users/komalsaiballa/Desktop/${keyName}.pem"
-
-                    sh "rm -f ${keyPath}"
+                    def keyPath = "${env.KEY_DIR}/${keyName}.pem"
+                    echo "🔑 Generating new key pair for this build..."
+                    sh """
+                        rm -f ${keyPath}
+                        aws ec2 create-key-pair --key-name ${keyName} --query KeyMaterial --output text --region ${AWS_REGION} > ${keyPath}
+                        chmod 400 ${keyPath}
+                    """
+                    echo "✅ Created new key pair: ${keyName}, saved at ${keyPath}"
 
                     sh """
-                      aws ec2 create-key-pair --key-name ${keyName} \
-                        --query 'KeyMaterial' --output text \
-                        --region us-east-1 > ${keyPath}
-                      chmod 400 ${keyPath}
+                        terraform init -input=false
+                        terraform apply -auto-approve -input=false -var=key_name=${keyName} -var=instance_type=${TF_VAR_instance_type}
                     """
-
-                    env.KEY_NAME = keyName
-                    env.EC2_KEY  = keyPath
-
-                    echo "✅ Created new key pair: ${env.KEY_NAME}, saved at ${env.EC2_KEY}"
-
-                    sh """
-                      terraform init -input=false
-                      terraform apply -auto-approve -input=false \
-                        -var="key_name=${env.KEY_NAME}" \
-                        -var="instance_type=t3.micro"
-                      terraform output -raw ec2_public_ip > ec2_ip.txt
-                    """
-
-                    env.EC2_HOST = readFile('ec2_ip.txt').trim()
-                    echo "🌍 New EC2 created: ${env.KEY_NAME} (${env.EC2_HOST})"
-
-                    sh """
-                      echo '${env.KEY_NAME} ${env.EC2_HOST} ${env.EC2_KEY}' >> /Users/komalsaiballa/Desktop/ec2_list.txt
-                    """
+                    def ec2_ip = sh(script: "terraform output -raw ec2_public_ip", returnStdout: true).trim()
+                    writeFile file: "ec2_info.txt", text: "${keyName} ${ec2_ip} ${keyPath}"
+                    echo "🌍 New EC2 created: ${keyName} (${ec2_ip})"
                 }
             }
         }
@@ -52,11 +43,11 @@ pipeline {
                 script {
                     if (fileExists('mvnw')) {
                         echo "📦 Using Maven Wrapper"
-                        sh 'chmod +x mvnw'
-                        sh './mvnw clean package -DskipTests'
+                        sh "chmod +x mvnw"
+                        sh "./mvnw clean package -DskipTests"
                     } else {
-                        echo "📦 Maven wrapper not found, using system Maven"
-                        sh 'mvn clean package -DskipTests'
+                        echo "📦 Using System Maven"
+                        sh "mvn clean package -DskipTests"
                     }
                 }
             }
@@ -64,29 +55,34 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sh "chmod +x deploy.sh"
-                sh "bash deploy.sh ${env.EC2_HOST} ${env.KEY_NAME}.pem"
+                script {
+                    def ec2_info = readFile("ec2_info.txt").trim().split(" ")
+                    def keyName = ec2_info[0]
+                    def ec2_ip = ec2_info[1]
+                    def keyPath = ec2_info[2]
+                    sh "chmod +x deploy.sh"
+                    sh "bash deploy.sh ${ec2_ip} ${keyPath}"
+                }
             }
         }
 
         stage('Verify App') {
             steps {
                 script {
-                    retry(3) {
-                        sh "sleep 10 && curl -f http://${env.EC2_HOST}:9091/hello"
-                    }
+                    def ec2_info = readFile("ec2_info.txt").trim().split(" ")
+                    def ec2_ip = ec2_info[1]
+                    sh "curl -s http://${ec2_ip}:9091/hello"
                 }
             }
         }
     }
 
     post {
-        success {
-            echo "✅ Pipeline complete!"
-            echo "🌍 App is running on EC2: ${env.KEY_NAME} (${env.EC2_HOST})"
-        }
         failure {
             echo "❌ Pipeline failed. Check logs."
+        }
+        success {
+            echo "✅ Pipeline completed successfully!"
         }
     }
 }
