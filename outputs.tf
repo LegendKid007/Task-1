@@ -4,6 +4,6 @@ output "ec2_public_ip" {
 }
 
 output "pem_file" {
-  description = "Path of private key PEM file"
+  description = "Path of the private key PEM file"
   value       = local_file.pem_file.filename
 }

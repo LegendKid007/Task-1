@@ -4,7 +4,6 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         TF_VAR_instance_type = "t3.micro"
-        // Fix PATH so Jenkins can find Terraform
         PATH = "/opt/homebrew/bin:${env.PATH}"
     }
 
@@ -19,11 +18,11 @@ pipeline {
             steps {
                 script {
                     def keyName = "jenkins-${env.BUILD_NUMBER}"
-                    echo "🔑 Using Terraform to create key + EC2"
                     sh """
-                        terraform -version
                         terraform init -input=false
-                        terraform apply -auto-approve -input=false -var=key_name=${keyName} -var=instance_type=${TF_VAR_instance_type}
+                        terraform apply -auto-approve -input=false \
+                          -var=key_name=${keyName} \
+                          -var=instance_type=${TF_VAR_instance_type}
                     """
                     def ec2_ip = sh(script: "terraform output -raw ec2_public_ip", returnStdout: true).trim()
                     def pem_file = sh(script: "terraform output -raw pem_file", returnStdout: true).trim()
@@ -37,11 +36,9 @@ pipeline {
             steps {
                 script {
                     if (fileExists('mvnw')) {
-                        echo "📦 Using Maven Wrapper"
                         sh "chmod +x mvnw"
                         sh "./mvnw clean package -DskipTests"
                     } else {
-                        echo "📦 Using System Maven"
                         sh "mvn clean package -DskipTests"
                     }
                 }
