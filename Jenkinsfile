@@ -65,7 +65,7 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 sh "chmod +x deploy.sh"
-                sh "bash deploy.sh ${env.EC2_HOST} /Users/komalsaiballa/Desktop/${env.KEY_NAME}.pem"
+                sh "bash deploy.sh ${env.EC2_HOST} ${env.KEY_NAME}.pem"
             }
         }
 
