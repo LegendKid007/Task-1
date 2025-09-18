@@ -2,10 +2,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Security group allowing SSH and app port
+# Get default VPC
+data "aws_vpc" "default" {
+  default = true
+}
+
+# Security Group for EC2
 resource "aws_security_group" "app_sg" {
   name        = "app_sg"
   description = "Allow SSH and app port"
+  vpc_id      = data.aws_vpc.default.id
 
   ingress {
     from_port   = 22
@@ -48,15 +54,16 @@ resource "aws_instance" "app" {
   vpc_security_group_ids      = [aws_security_group.app_sg.id]
   associate_public_ip_address = true
 
+  user_data = <<-EOT
+              #!/bin/bash
+              yum update -y
+              amazon-linux-extras enable corretto17
+              yum install -y java-17-amazon-corretto
+              echo "✅ Java installed" >> /home/ec2-user/setup.log
+              java -version >> /home/ec2-user/setup.log 2>&1
+              EOT
+
   tags = {
     Name = var.key_name
   }
-
-  user_data = <<-EOT
-              #!/bin/bash
-              sudo yum update -y
-              sudo amazon-linux-extras enable corretto17
-              sudo yum install -y java-17-amazon-corretto
-              java -version
-              EOT
 }
